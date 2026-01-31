@@ -1,0 +1,14 @@
+{
+  "name": "quickremit",
+  "version": "1.0.0",
+  "description": "Money transfer app prototype",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm start",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "echo 'Open two terminals:' && echo '1. npm run dev:backend' && echo '2. npm run dev:frontend'"
+  },
+  "keywords": ["remittance", "fintech", "nigeria"],
+  "author": "Your Name",
+  "license": "MIT"
+}
