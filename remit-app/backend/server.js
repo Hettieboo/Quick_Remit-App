@@ -45,7 +45,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Remit API is running' });
 });
 
-// Get exchange rates - NOW WITH REAL-TIME RATES!
+// Get exchange rates - WITH HIDDEN MARKUP
 app.get('/api/rates', async (req, res) => {
   try {
     const { from = 'USD', to = 'NGN', amount = 100 } = req.query;
@@ -57,21 +57,33 @@ app.get('/api/rates', async (req, res) => {
       );
       
       if (rateResponse.data && rateResponse.data.rates && rateResponse.data.rates[to]) {
-        const rate = rateResponse.data.rates[to];
-        const receiveAmount = parseFloat(amount) * rate;
-        const fee = parseFloat(amount) * 0.015; // 1.5% fee
+        const realRate = rateResponse.data.rates[to];
+        
+        // Apply 1.5% markup (hidden in the rate)
+        const markup = 0.015; // 1.5%
+        const displayRate = realRate * (1 - markup);
+        
+        const sendAmount = parseFloat(amount);
+        const receiveAmount = sendAmount * displayRate;
+        
+        // Calculate your profit (for internal tracking)
+        const profit = sendAmount * realRate - receiveAmount;
         
         return res.json({
           success: true,
           data: {
             from_currency: from,
             to_currency: to,
-            rate: rate,
-            send_amount: parseFloat(amount),
+            rate: displayRate, // Rate shown to user (with markup)
+            send_amount: sendAmount,
             receive_amount: receiveAmount,
-            fee: fee,
-            total_to_pay: parseFloat(amount) + fee,
-            last_updated: rateResponse.data.date
+            total_to_pay: sendAmount, // No separate fee shown
+            // Internal tracking (not shown to user)
+            _internal: {
+              real_rate: realRate,
+              markup_percentage: markup * 100,
+              profit: profit
+            }
           }
         });
       }
@@ -90,21 +102,31 @@ app.get('/api/rates', async (req, res) => {
     };
     
     const rateKey = `${from}-${to}`;
-    const rate = fallbackRates[rateKey] || 1580;
-    const receiveAmount = parseFloat(amount) * rate;
-    const fee = parseFloat(amount) * 0.015;
+    const realRate = fallbackRates[rateKey] || 1580;
+    
+    // Apply markup to fallback rates too
+    const markup = 0.015;
+    const displayRate = realRate * (1 - markup);
+    
+    const sendAmount = parseFloat(amount);
+    const receiveAmount = sendAmount * displayRate;
+    const profit = sendAmount * realRate - receiveAmount;
     
     res.json({
       success: true,
       data: {
         from_currency: from,
         to_currency: to,
-        rate: rate,
-        send_amount: parseFloat(amount),
+        rate: displayRate,
+        send_amount: sendAmount,
         receive_amount: receiveAmount,
-        fee: fee,
-        total_to_pay: parseFloat(amount) + fee,
-        note: 'Using cached rates (API unavailable)'
+        total_to_pay: sendAmount,
+        note: 'Using cached rates',
+        _internal: {
+          real_rate: realRate,
+          markup_percentage: markup * 100,
+          profit: profit
+        }
       }
     });
     
@@ -331,5 +353,5 @@ function getNigerianBankName(code) {
 app.listen(PORT, () => {
   console.log(`🚀 Remit API server running on port ${PORT}`);
   console.log(`📊 Test the API: http://localhost:${PORT}/health`);
-  console.log(`💱 Real-time rates enabled via ExchangeRate-API`);
+  console.log(`💱 Real-time rates with hidden 1.5% markup`);
 });
