@@ -45,14 +45,44 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Remit API is running' });
 });
 
-// Get exchange rates
+// Get exchange rates - NOW WITH REAL-TIME RATES!
 app.get('/api/rates', async (req, res) => {
   try {
     const { from = 'USD', to = 'NGN', amount = 100 } = req.query;
     
-    // In production, you'd call Flutterwave's actual rate API
-    // For prototype, we'll use realistic test rates
-    const rates = {
+    // Fetch real-time rates from ExchangeRate-API
+    try {
+      const rateResponse = await axios.get(
+        `https://api.exchangerate-api.com/v4/latest/${from}`
+      );
+      
+      if (rateResponse.data && rateResponse.data.rates && rateResponse.data.rates[to]) {
+        const rate = rateResponse.data.rates[to];
+        const receiveAmount = parseFloat(amount) * rate;
+        const fee = parseFloat(amount) * 0.015; // 1.5% fee
+        
+        return res.json({
+          success: true,
+          data: {
+            from_currency: from,
+            to_currency: to,
+            rate: rate,
+            send_amount: parseFloat(amount),
+            receive_amount: receiveAmount,
+            fee: fee,
+            total_to_pay: parseFloat(amount) + fee,
+            last_updated: rateResponse.data.date
+          }
+        });
+      }
+    } catch (apiError) {
+      console.error('Live rate API failed:', apiError.message);
+      // Fall through to fallback rates
+    }
+    
+    // Fallback to static rates if API fails
+    console.log('Using fallback rates');
+    const fallbackRates = {
       'USD-NGN': 1580,
       'GBP-NGN': 2100,
       'EUR-NGN': 1720,
@@ -60,9 +90,9 @@ app.get('/api/rates', async (req, res) => {
     };
     
     const rateKey = `${from}-${to}`;
-    const rate = rates[rateKey] || 1580;
+    const rate = fallbackRates[rateKey] || 1580;
     const receiveAmount = parseFloat(amount) * rate;
-    const fee = parseFloat(amount) * 0.015; // 1.5% fee
+    const fee = parseFloat(amount) * 0.015;
     
     res.json({
       success: true,
@@ -73,9 +103,11 @@ app.get('/api/rates', async (req, res) => {
         send_amount: parseFloat(amount),
         receive_amount: receiveAmount,
         fee: fee,
-        total_to_pay: parseFloat(amount) + fee
+        total_to_pay: parseFloat(amount) + fee,
+        note: 'Using cached rates (API unavailable)'
       }
     });
+    
   } catch (error) {
     console.error('Rate fetch error:', error);
     res.status(500).json({ 
@@ -299,4 +331,5 @@ function getNigerianBankName(code) {
 app.listen(PORT, () => {
   console.log(`🚀 Remit API server running on port ${PORT}`);
   console.log(`📊 Test the API: http://localhost:${PORT}/health`);
+  console.log(`💱 Real-time rates enabled via ExchangeRate-API`);
 });
