@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { fetchExchangeRate } from '../services/api';
 
 function AmountStep({ formData, updateFormData, nextStep }) {
-  const [amount, setAmount] = useState(formData.sendAmount);
+  const [amount, setAmount] = useState(formData.sendAmount || '');
   const [currency, setCurrency] = useState(formData.sendCurrency);
   const [loading, setLoading] = useState(false);
   const [rateData, setRateData] = useState(null);
 
   useEffect(() => {
-    loadRate();
+    if (amount && amount >= 10) {
+      loadRate();
+    }
   }, [amount, currency]);
 
   const loadRate = async () => {
@@ -24,7 +26,7 @@ function AmountStep({ formData, updateFormData, nextStep }) {
         receiveCurrency: 'NGN',
         receiveAmount: data.receive_amount,
         exchangeRate: data.rate,
-        fee: data.fee,
+        fee: 0, // No visible fee
         totalToPay: data.total_to_pay
       });
     } catch (error) {
@@ -51,8 +53,8 @@ function AmountStep({ formData, updateFormData, nextStep }) {
             <input
               type="number"
               value={amount}
-              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-              placeholder="100"
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter amount"
               min="10"
               step="10"
             />
@@ -82,9 +84,6 @@ function AmountStep({ formData, updateFormData, nextStep }) {
               <div className="rate-text">
                 1 {currency} = {rateData.rate.toFixed(2)} NGN
               </div>
-              <div className="fee-text">
-                Fee: {currency} {rateData.fee.toFixed(2)}
-              </div>
             </div>
           </div>
         )}
@@ -105,17 +104,13 @@ function AmountStep({ formData, updateFormData, nextStep }) {
 
       {rateData && (
         <div className="summary-box">
-          <div className="summary-row">
-            <span>Send amount:</span>
+          <div className="summary-row total">
+            <span>You pay:</span>
             <span>{currency} {rateData.send_amount.toFixed(2)}</span>
           </div>
           <div className="summary-row">
-            <span>Transfer fee:</span>
-            <span>{currency} {rateData.fee.toFixed(2)}</span>
-          </div>
-          <div className="summary-row total">
-            <span>Total to pay:</span>
-            <span>{currency} {rateData.total_to_pay.toFixed(2)}</span>
+            <span>They receive:</span>
+            <span>₦ {rateData.receive_amount.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</span>
           </div>
         </div>
       )}
@@ -123,7 +118,7 @@ function AmountStep({ formData, updateFormData, nextStep }) {
       <button 
         className="btn btn-primary btn-large"
         onClick={handleContinue}
-        disabled={amount < 10 || loading || !rateData}
+        disabled={!amount || amount < 10 || loading || !rateData}
       >
         Continue
       </button>
